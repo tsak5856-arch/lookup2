@@ -1,40 +1,31 @@
-import os
+# bot.py
 import requests
-import re
-from flask import Flask, request
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, ContextTypes, filters
 
-TOKEN = os.getenv('BOT_TOKEN')
-API_KEY = 'ZYROBR0TH3R'  # Your API key from the URL
+import os
 
-app = Flask(name)
+BOT_TOKEN = os.getenv("BOT_TOKEN")  # Use env var
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send me a phone number (e.g., 9925033528) to lookup.")
+    await update.message.reply_text("Send a number to look up. Example: 9925033528")
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    number = re.sub(r'[^d]', '', update.message.text)  # Clean number
-    if len(number) < 10:
-        await update.message.reply_text("Invalid number. Send digits only.")
-        return
-    
-    url = f"http://osintx.info/API/krobetahack.php?key={API_KEY}&type=mobile&term={number}"
+    number = update.message.text.strip()
+
+    # API request
+    url = f"http://osintx.info/API/krobetahack.php?key=ZYROBR0TH3R&type=mobile&term={number}"
     try:
-        resp = requests.get(url, timeout=10).json()
-        data = resp.get('data', 'No data found')
-        await update.message.reply_text(f"Results for {number}:
-{data}")
+        response = requests.get(url)
+        if response.status_code == 200:
+            await update.message.reply_text(response.text)
+        else:
+            await update.message.reply_text("Error fetching data from API.")
     except Exception as e:
-        await update.message.reply_text("Error fetching data. Try again.")
+        await update.message.reply_text(f"Error: {e}")
 
-def main():
-    application = Application.builder().token(TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-    
-    # Webhook setup (for GitHub Actions)
-    app.run(host='0.0.0.0', port=int(os.environ.get('PORT', 5000)))
+app = ApplicationBuilder().token(BOT_TOKEN).build()
+app.add_handler(CommandHandler("start", start))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
 
-if name == 'main':
-    main()
+app.run_polling()
